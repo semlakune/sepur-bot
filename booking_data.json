@@ -1,31 +1,24 @@
 {
-    "origin_station": "GAMBIR",
+    "origin_station": "PASARSENEN",
     "destination_station": "KEBUMEN",
     "departure_month": "Mar",
-    "departure_date": "12",
-    "train_name": "ARGO SEMERU",
-    "ticket_price": "555.000",
+    "departure_date": "27",
+    "train_name": "PROGO",
+    "ticket_price": "310.000",
     "bank_name": "BANK LAINNYA",
     "order_phone": "081234567890",
-    "order_address": "Jl. Example No. 123",
+    "order_address": "Kebumen",
     "order_email": "youremail@gmail.com",
     "bypass_captcha": false,
     "select_seat": false,
-    "schedule": {
-        "run_date": "2025-02-09",
-        "run_time": "21:22"
-    },
+    "schedule": true,
+    "schedule_run_date": "2025-02-10",
+    "schedule_run_time": "00:00",
     "passengers": [
         {
             "name": "Aji Purnomo",
             "id_card": "3305220101950001",
-            "prefix": "MR.",
-            "seat": "feature_not_available_yet"
-        },
-        {
-            "name": "Anisa Fitri",
-            "id_card": "3305220101950002",
-            "prefix": "MRS.",
+            "prefix": "MR",
             "seat": "feature_not_available_yet"
         }
     ]

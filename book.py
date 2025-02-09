@@ -36,7 +36,9 @@ class BookingConfig:
     order_email: str
     bypass_captcha: bool #! captcha feature is not available yet
     select_seat: bool #! seat feature is not available yet
-    schedule: dict
+    schedule: bool
+    schedule_run_date: str
+    schedule_run_time: str
     passengers: List[Passenger]
 
 class TrainBookingAutomation:
@@ -150,41 +152,54 @@ class TrainBookingAutomation:
             
             # Wait for scheduled time before submitting
             schedule_config = self.config.schedule
-            run_date = schedule_config.get('run_date')
-            run_time = schedule_config.get('run_time')
-            
-            if not run_date or not run_time:
-                raise ValueError("Schedule configuration missing run_date or run_time")
+            run_date = self.config.schedule_run_date
+            run_time = self.config.schedule_run_time
 
-            # Parse the scheduled date and time
-            wib = pytz.timezone('Asia/Jakarta')
-            scheduled_datetime = datetime.strptime(f"{run_date} {run_time}", "%Y-%m-%d %H:%M")
-            scheduled_datetime = wib.localize(scheduled_datetime)
-            
-            # Get current time in WIB
-            now = datetime.now(wib)
-            
-            if scheduled_datetime < now:
-                self.logger.error(f"Scheduled time {scheduled_datetime} has already passed!")
-                raise ValueError("Scheduled time has already passed")
+            if schedule_config:
                 
-            self.logger.info(f"Form filled. Waiting until scheduled time: {scheduled_datetime}")
-            
-            while True:
+                if not run_date or not run_time:
+                    raise ValueError("Schedule configuration missing run_date or run_time")
+                else:
+                    self.logger.info(f"Selected schedule date: {run_date} {run_time}")
+
+                # Parse the scheduled date and time
+                wib = pytz.timezone('Asia/Jakarta')
+                scheduled_datetime = datetime.strptime(f"{run_date} {run_time}", "%Y-%m-%d %H:%M")
+                scheduled_datetime = wib.localize(scheduled_datetime)
+                
+                # Get current time in WIB
                 now = datetime.now(wib)
                 
-                if now >= scheduled_datetime:
-                    self.logger.info("Scheduled time reached. Submitting form...")
-                    break
+                if scheduled_datetime < now:
+                    self.logger.error(f"Scheduled time {scheduled_datetime} has already passed!")
+                    raise ValueError("Scheduled time has already passed")
                     
-                time_diff = scheduled_datetime - now
-                hours, remainder = divmod(time_diff.seconds, 3600)
-                minutes, seconds = divmod(remainder, 60)
-                self.logger.info(f"Time until submission: {hours:02d}:{minutes:02d}:{seconds:02d}")
-                time.sleep(1)
+                self.logger.info(f"Form filled. Waiting until scheduled time: {scheduled_datetime}")
+                
+                while True:
+                    now = datetime.now(wib)
+                    
+                    if now >= scheduled_datetime:
+                        self.logger.info("Scheduled time reached. Submitting form...")
+                        break
+                        
+                    time_diff = scheduled_datetime - now
+                    hours, remainder = divmod(time_diff.seconds, 3600)
+                    minutes, seconds = divmod(remainder, 60)
+                    self.logger.info(f"Time until submission: {hours:02d}:{minutes:02d}:{seconds:02d}")
+                    time.sleep(1)
             
             # Submit search at scheduled time
             self.wait_for_element(By.NAME, "submit").click()
+
+            wait = self.wait_for_element(By.XPATH, "//h3[contains(text(), 'Estimasi Waktu Antrian')]")
+            if wait:
+                while True:
+                    self.logger.info("Waiting for queue...")
+                    time.sleep(1)
+                    wait = self.wait_for_element(By.XPATH, "//h3[contains(text(), 'Estimasi Waktu Antrian')]")
+                    if not wait:
+                        break
             
             # Select train
             train_xpath = (
@@ -213,6 +228,7 @@ class TrainBookingAutomation:
             primary = self.config.passengers[0]
             self.logger.info("Filling primary passenger details...")
             
+            Select(self.wait_for_element(By.ID, "pemesan_title")).select_by_value(primary.prefix)
             self.fill_input(By.ID, "pemesan_nama", primary.name)
             self.fill_input(By.ID, "pemesan_nohp", self.config.order_phone)
             self.fill_input(By.ID, "pemesan_alamat", self.config.order_address)
@@ -314,7 +330,7 @@ class TrainBookingAutomation:
             self.logger.error(f"Automation failed: {str(e)}")
             raise
         finally:
-            self.driver.quit()
+            # self.driver.quit()
             self.logger.info("Browser closed. Automation complete.")
 
 if __name__ == "__main__":
