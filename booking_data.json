@@ -11,6 +11,10 @@
     "order_email": "youremail@gmail.com",
     "bypass_captcha": false,
     "select_seat": false,
+    "schedule": {
+        "run_date": "2025-02-09",
+        "run_time": "21:22"
+    },
     "passengers": [
         {
             "name": "Aji Purnomo",

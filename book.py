@@ -10,6 +10,10 @@ from selenium.webdriver.support.ui import Select
 from selenium.common.exceptions import TimeoutException, WebDriverException
 import json
 from time import sleep
+import schedule
+import time
+from datetime import datetime
+import pytz
 
 @dataclass
 class Passenger:
@@ -32,6 +36,7 @@ class BookingConfig:
     order_email: str
     bypass_captcha: bool #! captcha feature is not available yet
     select_seat: bool #! seat feature is not available yet
+    schedule: dict
     passengers: List[Passenger]
 
 class TrainBookingAutomation:
@@ -133,10 +138,7 @@ class TrainBookingAutomation:
             # Date selection
             self.wait_for_element(By.ID, "departure_dateh").click()
             self.select_dropdown(By.CLASS_NAME, "ui-datepicker-month", self.config.departure_month)
-            self.wait_for_element(
-                By.XPATH, 
-                f"//a[@class='ui-state-default' and text()='{self.config.departure_date}']"
-            ).click()
+            self.wait_for_element(By.XPATH, f"//a[@class='ui-state-default' and text()='{self.config.departure_date}']").click()
             
             # Set passenger count
             passenger_total = self.wait_for_element(By.NAME, "adult")
@@ -146,7 +148,42 @@ class TrainBookingAutomation:
                 len(self.config.passengers)
             )
             
-            # Submit search
+            # Wait for scheduled time before submitting
+            schedule_config = self.config.schedule
+            run_date = schedule_config.get('run_date')
+            run_time = schedule_config.get('run_time')
+            
+            if not run_date or not run_time:
+                raise ValueError("Schedule configuration missing run_date or run_time")
+
+            # Parse the scheduled date and time
+            wib = pytz.timezone('Asia/Jakarta')
+            scheduled_datetime = datetime.strptime(f"{run_date} {run_time}", "%Y-%m-%d %H:%M")
+            scheduled_datetime = wib.localize(scheduled_datetime)
+            
+            # Get current time in WIB
+            now = datetime.now(wib)
+            
+            if scheduled_datetime < now:
+                self.logger.error(f"Scheduled time {scheduled_datetime} has already passed!")
+                raise ValueError("Scheduled time has already passed")
+                
+            self.logger.info(f"Form filled. Waiting until scheduled time: {scheduled_datetime}")
+            
+            while True:
+                now = datetime.now(wib)
+                
+                if now >= scheduled_datetime:
+                    self.logger.info("Scheduled time reached. Submitting form...")
+                    break
+                    
+                time_diff = scheduled_datetime - now
+                hours, remainder = divmod(time_diff.seconds, 3600)
+                minutes, seconds = divmod(remainder, 60)
+                self.logger.info(f"Time until submission: {hours:02d}:{minutes:02d}:{seconds:02d}")
+                time.sleep(1)
+            
+            # Submit search at scheduled time
             self.wait_for_element(By.NAME, "submit").click()
             
             # Select train
@@ -281,9 +318,20 @@ class TrainBookingAutomation:
             self.logger.info("Browser closed. Automation complete.")
 
 if __name__ == "__main__":
-    CONFIG_PATH = "booking_data.json" # Path to the JSON configuration file
-    CHROMEDRIVER_PATH = "" # Path to chromedriver executable, e.g. /usr/bin/chromedriver. For windows users, you can use chromedriver.exe from folder /chromedriver/chromedriver.exe in this repository
+    CONFIG_PATH = "booking_data.json"
+    CHROMEDRIVER_PATH = ""
     
+    # Set up logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler('booking_sepur.log'),
+            logging.StreamHandler()
+        ]
+    )
+    logger = logging.getLogger(__name__)
+
     try:
         automation = TrainBookingAutomation(
             config_path=CONFIG_PATH,
@@ -292,5 +340,5 @@ if __name__ == "__main__":
         )
         automation.run()
     except Exception as e:
-        logging.error(f"Failed to run automation: {str(e)}")
+        logger.error(f"Failed to run automation: {str(e)}")
         raise
